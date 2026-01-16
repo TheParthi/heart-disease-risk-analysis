@@ -2,6 +2,12 @@ import streamlit as st
 import pandas as pd
 import joblib
 
+# 👉 NEW: database imports
+from database import create_db, insert_data, fetch_data
+
+# 👉 NEW: initialize database (run once)
+create_db()
+
 # Load model and scaler
 model, scaler = joblib.load("heart_models.pkl")
 
@@ -33,8 +39,8 @@ col1, col2 = st.columns(2)
 
 with col1:
     age = st.slider("Age (years)", 20, 80, 35)
-    sex = st.radio("Sex", ["Male", "Female"])
-    sex = 1 if sex == "Male" else 0
+    sex_label = st.radio("Sex", ["Male", "Female"])
+    sex = 1 if sex_label == "Male" else 0
 
     cp_label = st.selectbox(
         "Chest Pain Type",
@@ -65,8 +71,8 @@ st.subheader("🧪 Clinical Measurements")
 col3, col4 = st.columns(2)
 
 with col3:
-    fbs = st.radio("Fasting Blood Sugar > 120 mg/dl", ["No", "Yes"])
-    fbs = 1 if fbs == "Yes" else 0
+    fbs_label = st.radio("Fasting Blood Sugar > 120 mg/dl", ["No", "Yes"])
+    fbs = 1 if fbs_label == "Yes" else 0
 
     restecg_label = st.selectbox(
         "Resting ECG",
@@ -78,8 +84,8 @@ with col3:
         "Left Ventricular Hypertrophy": 2
     }[restecg_label]
 
-    exang = st.radio("Exercise Induced Angina", ["No", "Yes"])
-    exang = 1 if exang == "Yes" else 0
+    exang_label = st.radio("Exercise Induced Angina", ["No", "Yes"])
+    exang = 1 if exang_label == "Yes" else 0
 
 with col4:
     oldpeak = st.slider("ST Depression", 0.0, 6.0, 0.0, 0.1)
@@ -108,9 +114,30 @@ if st.button("🔍 Predict Heart Disease Risk", use_container_width=True):
 
     st.divider()
 
+    # 👉 result text
+    result_text = "High Risk" if prediction[0] == 0 else "Low Risk"
+
+    # 👉 NEW: store prediction in database
+    insert_data(age, sex_label, trestbps, chol, result_text)
+
     if prediction[0] == 0:
         st.error("🚨 **High Risk of Heart Disease**")
     else:
         st.success("✅ **Low Risk of Heart Disease**")
 
     st.caption("⚠️ This tool is for educational purposes only, not a medical diagnosis.")
+
+# ===================== HISTORY =====================
+st.divider()
+st.subheader("📊 Prediction History")
+
+history = fetch_data()
+
+if history:
+    history_df = pd.DataFrame(
+        history,
+        columns=["ID", "Age", "Sex", "BP", "Cholesterol", "Result", "Timestamp"]
+    )
+    st.dataframe(history_df, use_container_width=True)
+else:
+    st.info("No prediction history available yet.")
